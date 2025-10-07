@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Auto Extract & Generate PATCH_LIB by ravi rao </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { background: linear-gradient(120deg, #162b46, #1884a7); font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0;}
+    .card { background: #202d48; padding: 32px 24px 22px; border-radius: 17px; max-width: 430px; width: 96%; box-shadow: 0 0 28px #2bfad777;}
+    h2 {color:#60dcff; margin-bottom: 20px; text-align: center;}
+    .input-box {margin-bottom: 16px;}
+    .input-box label {color:#c8eafe; font-weight: 500; margin-bottom: 7px; display: block;}
+    .input-box input, .input-box textarea, .input-box select {background:#222e4c; color:#c7fff3; border: 1.3px solid #60dcff55; padding: 8px 10px; border-radius:8px; width: 100%; font-size: 1em; margin-bottom: 6px;}
+    textarea { min-height: 56px; font-family: 'Fira Mono', monospace; font-size: 1em; resize: vertical;}
+    .output-block {background: #222e4c; color: #52ffe7; padding: 10px; border-radius: 8px; font-family:'Fira Mono', monospace; font-size: 1.04em; margin-top: 13px; min-height: 30px; word-break: break-word;}
+    .btn-copy {background: linear-gradient(90deg, #51c8ff 0%, #44ebb7 100%); color: #18294c; border: none; padding: 8px 20px; font-size: 1.07em; font-weight: bold; border-radius: 7px; cursor:pointer; width: 100%; margin-top:8px;}
+    .btn-copy:active, .btn-copy:hover {background: linear-gradient(90deg, #36a3e6 0%, #26c884 100%);}
+    .tips {color:#41bff4; font-size: 0.93em; margin-top: 14px; text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Auto Detect & Generate PATCH_LIB</h2>
+    <div class="input-box">
+      <label for="libType">Library Type</label>
+      <select id="libType">
+        <option value="libanogs.so">anigs (libanogs.so)</option>
+        <option value="libue4.so">ue4 (libue4.so)</option>
+        <option value="libanort.so">anort (libanort.so)</option>
+      </select>
+    </div>
+    <div class="input-box">
+      <label for="patchBytes">Patch Bytes (\x format)</label>
+      <input type="text" id="patchBytes" placeholder="\x00\x00\x80\xD2\xC0\x03\x5F\xD6" />
+    </div>
+    <div class="input-box">
+      <label for="offsets">Paste text with offsets</label>
+      <textarea id="offsets" placeholder="Paste offsets, sub746BD7, JD636D, etc" ></textarea>
+    </div>
+    <div class="output-block" id="output"></div>
+    <button class="btn-copy" onclick="copyAll()">Copy all</button>
+    <div class="tips">Paste combined text. Script auto-detects hex, 0x, sub-prefixed hex, even concatenated patterns.</div>
+  </div>
+<script>
+function extractOffsets(text) {
+  const pattern = /(?:0x)?[0-9a-fA-F]{6,16}/g;
+  let matches = text.match(pattern) || [];
+  // Remove duplicates
+  const unique = Array.from(new Set(matches));
+  // Convert to uniform 0x... format
+  return unique.map(x => {
+    x = x.trim();
+    if (/^0x/.test(x)) return x;
+    return '0x' + x;
+  });
+}
+function makePatchLibs() {
+  const lib = document.getElementById('libType').value;
+  const patch = document.getElementById('patchBytes').value.trim();
+  const text = document.getElementById('offsets').value;
+  let errors = "";
+  if (!patch.match(/^\\x([0-9a-fA-F]{2})(\\x[0-9a-fA-F]{2})*$/)) {
+    document.getElementById('output').innerHTML = '<span style="color:#ea4444">Patch bytes must be \\xNN format.</span>'; return;
+  }
+  const offsets = extractOffsets(text);
+  if (offsets.length === 0) {
+    document.getElementById('output').innerHTML = '<span style="color:#ea4444">No valid offsets detected.</span>'; return;
+  }
+  const lines = offsets.map(off => `PATCH_LIB("${lib}","${off}","${patch}");`);
+  document.getElementById('output').innerHTML = lines.join("<br>");
+}
+function copyAll() {
+  navigator.clipboard.writeText(document.getElementById('output').innerText.replace(/\n/g,"\r\n"));
+  document.querySelector('.btn-copy').textContent = "Copied!";
+  setTimeout(()=>{document.querySelector('.btn-copy').textContent = "Copy all";},1200);
+}
+document.getElementById('libType').addEventListener('change', makePatchLibs);
+document.getElementById('patchBytes').addEventListener('input', makePatchLibs);
+document.getElementById('offsets').addEventListener('input', makePatchLibs);
+// Default demo
+document.getElementById('patchBytes').value = "\\x00\\x00\\x80\\xD2\\xC0\\x03\\x5F\\xD6";
+document.getElementById('offsets').value = "sub746BD7,JD636D,subAABB,12345678";
+makePatchLibs();
+</script>
+</body>
+</html>
