@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Auto Extract & Generate PATCH_LIB by ravi rao </title>
+  <title>PATCH_LIB Auto Extract (3-16 digit offsets)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { background: linear-gradient(120deg, #162b46, #1884a7); font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0;}
@@ -20,7 +20,7 @@
 </head>
 <body>
   <div class="card">
-    <h2>Auto Detect & Generate PATCH_LIB</h2>
+    <h2>PATCH_LIB Extract & Generate (3-16 hex digits)</h2>
     <div class="input-box">
       <label for="libType">Library Type</label>
       <select id="libType">
@@ -34,52 +34,54 @@
       <input type="text" id="patchBytes" placeholder="\x00\x00\x80\xD2\xC0\x03\x5F\xD6" />
     </div>
     <div class="input-box">
-      <label for="offsets">Paste text with offsets</label>
-      <textarea id="offsets" placeholder="Paste offsets, sub746BD7, JD636D, etc" ></textarea>
+      <label for="offsets">Paste offset text (any format)</label>
+      <textarea id="offsets" placeholder="Paste strings like sub746BD7, JD636D, ABC, 12345, etc"></textarea>
     </div>
     <div class="output-block" id="output"></div>
     <button class="btn-copy" onclick="copyAll()">Copy all</button>
-    <div class="tips">Paste combined text. Script auto-detects hex, 0x, sub-prefixed hex, even concatenated patterns.</div>
+    <div class="tips">Detects 3 to 16 digit hex offsets automatically with or without 0x prefix.</div>
   </div>
 <script>
 function extractOffsets(text) {
-  const pattern = /(?:0x)?[0-9a-fA-F]{6,16}/g;
+  // Matches hex strings between 3 and 16 digits, optionally prefixed with 0x (case insensitive)
+  const pattern = /(?:0x)?[0-9a-fA-F]{3,16}/g;
   let matches = text.match(pattern) || [];
-  // Remove duplicates
-  const unique = Array.from(new Set(matches));
-  // Convert to uniform 0x... format
-  return unique.map(x => {
+  // normalize all to 0x format, removing duplicates
+  return Array.from(new Set(matches.map(x => {
     x = x.trim();
-    if (/^0x/.test(x)) return x;
-    return '0x' + x;
-  });
+    if (x.toLowerCase().startsWith('0x')) return x.toLowerCase();
+    return '0x' + x.toLowerCase();
+  })));
 }
 function makePatchLibs() {
   const lib = document.getElementById('libType').value;
   const patch = document.getElementById('patchBytes').value.trim();
   const text = document.getElementById('offsets').value;
-  let errors = "";
+
   if (!patch.match(/^\\x([0-9a-fA-F]{2})(\\x[0-9a-fA-F]{2})*$/)) {
-    document.getElementById('output').innerHTML = '<span style="color:#ea4444">Patch bytes must be \\xNN format.</span>'; return;
+    document.getElementById('output').innerHTML = '<span style="color:#ea4444">Patch bytes must be \\xNN format.</span>';
+    return;
   }
-  const offsets = extractOffsets(text);
-  if (offsets.length === 0) {
-    document.getElementById('output').innerHTML = '<span style="color:#ea4444">No valid offsets detected.</span>'; return;
+  let offsets = extractOffsets(text);
+  if(offsets.length === 0) {
+    document.getElementById('output').innerHTML = '<span style="color:#ea4444">No valid offsets detected.</span>';
+    return;
   }
-  const lines = offsets.map(off => `PATCH_LIB("${lib}","${off}","${patch}");`);
+  let lines = offsets.map(offset => `PATCH_LIB("${lib}","${offset}","${patch}");`);
   document.getElementById('output').innerHTML = lines.join("<br>");
 }
 function copyAll() {
-  navigator.clipboard.writeText(document.getElementById('output').innerText.replace(/\n/g,"\r\n"));
+  navigator.clipboard.writeText(document.getElementById('output').innerText.replace(/\n/g, "\r\n"));
   document.querySelector('.btn-copy').textContent = "Copied!";
-  setTimeout(()=>{document.querySelector('.btn-copy').textContent = "Copy all";},1200);
+  setTimeout(() => { document.querySelector('.btn-copy').textContent = "Copy all"; }, 1200);
 }
 document.getElementById('libType').addEventListener('change', makePatchLibs);
 document.getElementById('patchBytes').addEventListener('input', makePatchLibs);
 document.getElementById('offsets').addEventListener('input', makePatchLibs);
+
 // Default demo
 document.getElementById('patchBytes').value = "\\x00\\x00\\x80\\xD2\\xC0\\x03\\x5F\\xD6";
-document.getElementById('offsets').value = "sub746BD7,JD636D,subAABB,12345678";
+document.getElementById('offsets').value = "sub746BD7, JD636D, ABC, 12345, 0xA1F";
 makePatchLibs();
 </script>
 </body>
